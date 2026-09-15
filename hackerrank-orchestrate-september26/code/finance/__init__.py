@@ -1,0 +1,3 @@
+"""
+Deterministic financial decision engine.
+"""

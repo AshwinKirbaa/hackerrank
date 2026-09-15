@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buy or Wait? — Know Before You Spend</title>
+  <meta name="description" content="Get a clear answer on whether you can safely afford a purchase, based on your real cash flow and upcoming commitments." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+        extend: {
+          colors: {
+            indigo: {
+              50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',
+              400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',
+              800:'#3730a3',900:'#312e81'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+
+    /* ── Status semantic colours ───────────────────────────────── */
+    .status-bg-affordable_now      { background:#f0fdf4; border-left:4px solid #22c55e; }
+    .status-bg-affordable_with_plan{ background:#eef2ff; border-left:4px solid #6366f1; }
+    .status-bg-affordable_later    { background:#fffbeb; border-left:4px solid #f59e0b; }
+    .status-bg-not_affordable      { background:#fef2f2; border-left:4px solid #ef4444; }
+
+    .status-icon-bg-affordable_now      { background:#dcfce7; color:#16a34a; }
+    .status-icon-bg-affordable_with_plan{ background:#e0e7ff; color:#4f46e5; }
+    .status-icon-bg-affordable_later    { background:#fef3c7; color:#d97706; }
+    .status-icon-bg-not_affordable      { background:#fee2e2; color:#dc2626; }
+
+    .badge-affordable_now      { background:#dcfce7; color:#166534; }
+    .badge-affordable_with_plan{ background:#e0e7ff; color:#3730a3; }
+    .badge-affordable_later    { background:#fef3c7; color:#92400e; }
+    .badge-not_affordable      { background:#fee2e2; color:#991b1b; }
+
+    .dot-affordable_now      { background:#22c55e; }
+    .dot-affordable_with_plan{ background:#6366f1; }
+    .dot-affordable_later    { background:#f59e0b; }
+    .dot-affordable_not_affordable{ background:#ef4444; }
+
+    /* ── Animations ────────────────────────────────────────────── */
+    .view-in { animation: viewIn .22s ease both; }
+    @keyframes viewIn {
+      from { opacity:0; transform:translateY(10px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    @keyframes pulse-dot {
+      0%,100% { transform:scale(1); opacity:1; }
+      50%      { transform:scale(1.5); opacity:.5; }
+    }
+    .pulse-dot { animation: pulse-dot 1.1s ease infinite; }
+
+    /* ── Card hover ───────────────────────────────────────────── */
+    .c-hover { transition: box-shadow .15s ease, transform .15s ease; }
+    .c-hover:hover { box-shadow:0 4px 20px rgba(0,0,0,.08); transform:translateY(-1px); }
+
+    /* ── Nav active ───────────────────────────────────────────── */
+    .nav-on  { background:#eef2ff; color:#4f46e5; font-weight:600; }
+    .nav-off { color:#64748b; }
+    .nav-off:hover { background:#f8fafc; color:#1e293b; }
+
+    /* ── Mobile bottom nav active ────────────────────────────── */
+    .mnav-on  { color:#4f46e5; }
+    .mnav-off { color:#94a3b8; }
+
+    /* ── Timeline connector ─────────────────────────────────── */
+    .tl-connector { background:linear-gradient(to bottom,#6366f1,#c7d2fe); }
+
+    /* ── Scrollbar ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:#f1f5f9; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+
+    /* ── Modal overlay ──────────────────────────────────────── */
+    .modal-ov { background:rgba(0,0,0,.45); }
+
+    /* ── Amount display (tabular nums) ──────────────────────── */
+    .amt { font-variant-numeric:tabular-nums; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+    }
+  </style>
+</head>
+
+<!-- ===================================================================
+     BODY — Alpine.js root
+=================================================================== -->
+<body class="h-full bg-slate-50 text-slate-900 antialiased"
+      x-data="app()" x-init="init()">
+
+<!-- ===================================================================
+     DESKTOP SIDEBAR  (hidden on mobile)
+=================================================================== -->
+<aside class="fixed inset-y-0 left-0 w-60 bg-white border-r border-slate-100 flex flex-col z-30 hidden lg:flex">
+  <!-- Brand -->
+  <div class="px-6 py-6 border-b border-slate-100">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-bold text-slate-900 leading-none">Buy or Wait?</p>
+        <p class="text-xs text-slate-400 mt-0.5">Spend with confidence</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav links -->
+  <nav class="flex-1 px-3 py-4 space-y-1">
+    <button @click="view='home'" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
+            :class="view==='home' ? 'nav-on' : 'nav-off'">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      Home
+    </button>
+    <button @click="view='check'; error=null" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
+            :class="view==='check' ? 'nav-on' : 'nav-off'">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      Check affordability
+    </button>
+    <button @click="view='dashboard'; currentPage=1" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
+            :class="view==='dashboard' ? 'nav-on' : 'nav-off'">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+      </svg>
+      All decisions
+    </button>
+  </nav>
+
+  <!-- Stats footer -->
+  <div class="px-5 py-5 border-t border-slate-100 space-y-3">
+    <div class="flex justify-between text-xs">
+      <span class="text-slate-400">Total analyzed</span>
+      <span class="font-semibold text-slate-700" x-text="stats.total || '—'"></span>
+    </div>
+    <div class="flex justify-between text-xs">
+      <span class="text-emerald-600 font-medium">Affordable now</span>
+      <span class="text-slate-700" x-text="statCount('affordable_now')"></span>
+    </div>
+    <div class="flex justify-between text-xs">
+      <span class="text-indigo-600 font-medium">With a plan</span>
+      <span class="text-slate-700" x-text="statCount('affordable_with_plan')"></span>
+    </div>
+    <div class="flex justify-between text-xs">
+      <span class="text-amber-500 font-medium">Affordable later</span>
+      <span class="text-slate-700" x-text="statCount('affordable_later')"></span>
+    </div>
+    <div class="flex justify-between text-xs">
+      <span class="text-red-500 font-medium">Not affordable</span>
+      <span class="text-slate-700" x-text="statCount('not_affordable')"></span>
+    </div>
+  </div>
+</aside>
+
+<!-- ===================================================================
+     MOBILE TOP BAR
+=================================================================== -->
+<header class="lg:hidden fixed top-0 inset-x-0 z-30 bg-white border-b border-slate-100 h-14 flex items-center px-4 gap-3">
+  <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+    </svg>
+  </div>
+  <span class="font-bold text-slate-900 text-sm">Buy or Wait?</span>
+  <div class="flex-1"></div>
+  <button @click="view='check'; error=null"
+          class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg">
+    Check
+  </button>
+</header>
+
+<!-- ===================================================================
+     MAIN CONTENT AREA
+=================================================================== -->
+<div class="lg:pl-60 min-h-screen flex flex-col">
+  <main class="flex-1 pt-14 lg:pt-0 pb-20 lg:pb-0">
+
+    <!-- ================================================================
+         VIEW: HOME  (landing page)
+    ================================================================ -->
+    <div x-show="view==='home'" x-cloak class="view-in">
+
+      <!-- Hero -->
+      <section class="relative overflow-hidden bg-white border-b border-slate-100">
+        <div class="absolute inset-0 bg-gradient-to-br from-indigo-50/60 via-white to-slate-50 pointer-events-none"></div>
+        <div class="relative max-w-4xl mx-auto px-6 py-20 lg:py-28 text-center">
+          <div class="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold px-4 py-2 rounded-full mb-8 tracking-wide uppercase">
+            AI-assisted · Deterministic · Always safe
+          </div>
+          <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tight leading-[1.06] mb-6">
+            Should you<br>
+            <span class="text-indigo-600">buy it now</span>—<br>
+            or wait?
+          </h1>
+          <p class="text-xl text-slate-500 max-w-lg mx-auto mb-10 leading-relaxed">
+            Get a clear, responsible answer based on your real cash flow, upcoming expenses, and financial priorities.
+          </p>
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button @click="view='check'; error=null"
+                    class="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-lg transition-colors shadow-md shadow-indigo-600/20">
+              Check affordability →
+            </button>
+            <button @click="view='dashboard'; currentPage=1"
+                    class="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-2xl text-lg border border-slate-200 transition-colors">
+              See all 250 decisions
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats strip -->
+      <section class="bg-white border-b border-slate-100">
+        <div class="max-w-4xl mx-auto px-6 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div class="text-center">
+            <p class="text-4xl font-black text-slate-900 amt" x-text="stats.total || '—'"></p>
+            <p class="text-sm text-slate-500 mt-1">Decisions analyzed</p>
+          </div>
+          <div class="text-center">
+            <p class="text-4xl font-black text-emerald-600 amt" x-text="statCount('affordable_now') || '—'"></p>
+            <p class="text-sm text-slate-500 mt-1">Affordable now</p>
+          </div>
+          <div class="text-center">
+            <p class="text-4xl font-black text-indigo-600 amt" x-text="statCount('affordable_with_plan') || '—'"></p>
+            <p class="text-sm text-slate-500 mt-1">Affordable with a plan</p>
+          </div>
+          <div class="text-center">
+            <p class="text-4xl font-black text-amber-500 amt" x-text="statCount('affordable_later') || '—'"></p>
+            <p class="text-sm text-slate-500 mt-1">Affordable later</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <section class="max-w-4xl mx-auto px-6 py-20">
+        <h2 class="text-3xl font-black text-slate-900 text-center mb-16">How it works</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-10">
+          <div class="text-center">
+            <div class="w-14 h-14 bg-indigo-100 text-indigo-700 rounded-3xl flex items-center justify-center text-2xl font-black mx-auto mb-5">1</div>
+            <h3 class="font-bold text-slate-900 mb-2 text-lg">Tell us what you want to buy</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">Enter the amount, category, and when you need it.</p>
+          </div>
+          <div class="text-center">
+            <div class="w-14 h-14 bg-indigo-100 text-indigo-700 rounded-3xl flex items-center justify-center text-2xl font-black mx-auto mb-5">2</div>
+            <h3 class="font-bold text-slate-900 mb-2 text-lg">We analyze your cash flow</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">We check your balance, scheduled payments, and 90-day forecast.</p>
+          </div>
+          <div class="text-center">
+            <div class="w-14 h-14 bg-indigo-100 text-indigo-700 rounded-3xl flex items-center justify-center text-2xl font-black mx-auto mb-5">3</div>
+            <h3 class="font-bold text-slate-900 mb-2 text-lg">Get the safest option</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">We show the recommendation that keeps your minimum reserve intact.</p>
+          </div>
+        </div>
+        <div class="mt-16 bg-indigo-50 border border-indigo-100 rounded-3xl p-8 text-center">
+          <p class="text-indigo-900 font-semibold text-lg mb-2">Your minimum balance is always protected.</p>
+          <p class="text-indigo-700 text-sm max-w-md mx-auto">Every recommendation ensures your financial safety buffer remains untouched, no matter what.</p>
+          <button @click="view='check'; error=null"
+                  class="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors text-sm">
+            Check your affordability now
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================================================================
+         VIEW: CHECK AFFORDABILITY  (form / sample selector)
+    ================================================================ -->
+    <div x-show="view==='check'" x-cloak class="view-in">
+      <div class="max-w-2xl mx-auto px-4 py-10 lg:py-14">
+
+        <!-- Header -->
+        <div class="mb-10">
+          <h2 class="text-3xl font-black text-slate-900">Check affordability</h2>
+          <p class="text-slate-500 mt-2">Select a real financial scenario to analyze. The engine will run against actual data.</p>
+        </div>
+
+        <!-- Error -->
+        <div x-show="error" class="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3 mb-6">
+          <span class="text-red-500 text-lg flex-shrink-0">!</span>
+          <p class="text-red-700 text-sm" x-text="error"></p>
+        </div>
+
+        <!-- Sample scenarios -->
+        <div class="mb-8">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Choose a scenario</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <template x-for="s in samples" :key="s.request_id">
+              <button @click="selectSample(s)"
+                      class="text-left p-5 rounded-2xl border-2 transition-all c-hover"
+                      :class="selectedSample?.request_id === s.request_id
+                        ? 'border-indigo-500 bg-indigo-50 shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-slate-300'">
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
+                       :class="`status-icon-bg-${s.affordability_status}`"
+                       x-text="s._icon"></div>
+                  <span class="font-semibold text-slate-800 text-sm" x-text="s._label"></span>
+                </div>
+                <p class="text-xs text-slate-500 line-clamp-2" x-text="s.request_text || s._desc"></p>
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="text-xs font-semibold text-slate-700 amt" x-text="fmtAmt(s.requested_amount, s.home_currency)"></span>
+                  <span class="text-xs font-medium capitalize text-slate-400" x-text="(s.request_type || '').replace(/_/g,' ')"></span>
+                </div>
+              </button>
+            </template>
+          </div>
+
+          <!-- Loading samples state -->
+          <div x-show="samples.length === 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <template x-for="i in [1,2,3,4]" :key="i">
+              <div class="p-5 rounded-2xl border-2 border-slate-100 bg-white animate-pulse">
+                <div class="h-4 bg-slate-100 rounded mb-3 w-3/4"></div>
+                <div class="h-3 bg-slate-50 rounded w-full"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Selected preview card -->
+        <div x-show="selectedSample"
+             class="bg-white rounded-2xl border border-slate-200 p-6 mb-8 shadow-sm">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Scenario details</p>
+          <div class="space-y-3">
+            <div class="flex gap-4">
+              <span class="text-sm text-slate-400 w-28 flex-shrink-0">Request</span>
+              <span class="text-sm text-slate-800 leading-relaxed" x-text="selectedSample?.request_text"></span>
+            </div>
+            <div class="flex gap-4">
+              <span class="text-sm text-slate-400 w-28 flex-shrink-0">Amount</span>
+              <span class="text-sm font-bold text-slate-900 amt"
+                    x-text="fmtAmt(selectedSample?.requested_amount, selectedSample?.home_currency)"></span>
+            </div>
+            <div class="flex gap-4">
+              <span class="text-sm text-slate-400 w-28 flex-shrink-0">Category</span>
+              <span class="text-sm text-slate-700 capitalize"
+                    x-text="(selectedSample?.request_type || '').replace(/_/g,' ')"></span>
+            </div>
+            <div class="flex gap-4">
+              <span class="text-sm text-slate-400 w-28 flex-shrink-0">Request date</span>
+              <span class="text-sm text-slate-700" x-text="fmtDate(selectedSample?.request_date)"></span>
+            </div>
+            <div class="flex gap-4" x-show="selectedSample?.desired_completion_date">
+              <span class="text-sm text-slate-400 w-28 flex-shrink-0">Deadline</span>
+              <span class="text-sm text-slate-700" x-text="fmtDate(selectedSample?.desired_completion_date)"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <button @click="runCheck()"
+                :disabled="!selectedSample"
+                class="w-full py-4 font-bold rounded-2xl text-lg transition-all"
+                :class="selectedSample
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'">
+          <span x-show="!selectedSample">Select a scenario to continue</span>
+          <span x-show="selectedSample">Analyze affordability →</span>
+        </button>
+
+        <p class="text-center text-xs text-slate-400 mt-4">
+          This analysis runs against your real financial data. Your minimum reserve is always protected.
+        </p>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         VIEW: LOADING  (analysis animation)
+    ================================================================ -->
+    <div x-show="view==='loading'" x-cloak
+         class="min-h-[calc(100vh-3.5rem)] lg:min-h-screen flex items-center justify-center px-4">
+      <div class="text-center max-w-sm w-full">
+        <!-- Spinner -->
+        <div class="relative w-20 h-20 mx-auto mb-10">
+          <div class="absolute inset-0 bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-600/30"></div>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <div class="w-10 h-10 border-4 border-white/25 border-t-white rounded-full animate-spin"></div>
+          </div>
+        </div>
+
+        <h2 class="text-2xl font-black text-slate-900 mb-2">Analyzing your plan</h2>
+        <p class="text-slate-500 text-sm mb-10">Give us a moment to review your financial picture.</p>
+
+        <!-- Steps -->
+        <div class="space-y-3.5 text-left">
+          <template x-for="(step, idx) in loadingSteps" :key="idx">
+            <div class="flex items-center gap-3.5 transition-all duration-300"
+                 :class="idx <= loadingIdx ? 'opacity-100' : 'opacity-25'">
+              <!-- Icon -->
+              <div class="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+                   :class="idx < loadingIdx
+                     ? 'bg-emerald-100'
+                     : idx === loadingIdx
+                       ? 'bg-indigo-100'
+                       : 'bg-slate-100'">
+                <span x-show="idx < loadingIdx" class="text-emerald-600 text-xs font-bold">✓</span>
+                <div x-show="idx === loadingIdx"
+                     class="w-2.5 h-2.5 bg-indigo-500 rounded-full pulse-dot"></div>
+              </div>
+              <!-- Text -->
+              <span class="text-sm"
+                    :class="idx < loadingIdx ? 'text-emerald-700 font-medium' : 'text-slate-600'"
+                    x-text="step"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         VIEW: RESULT  (the most important screen)
+    ================================================================ -->
+    <div x-show="view==='result'" x-cloak class="view-in">
+      <div class="max-w-5xl mx-auto px-4 py-8 lg:py-12">
+
+        <!-- Back nav -->
+        <div class="flex items-center gap-3 mb-8 text-sm">
+          <button @click="view='check'; error=null"
+                  class="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors font-medium">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Modify request
+          </button>
+          <span class="text-slate-300">/</span>
+          <span class="text-slate-400">Affordability result</span>
+        </div>
+
+        <!-- ── Status banner ───────────────────────────────────── -->
+        <div class="rounded-3xl p-7 lg:p-10 mb-8"
+             :class="`status-bg-${result?.affordability_status}`">
+          <div class="flex flex-col sm:flex-row items-start gap-6">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
+                 :class="`status-icon-bg-${result?.affordability_status}`"
+                 x-text="resultStatus.icon"></div>
+            <div class="flex-1">
+              <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold mb-3"
+                   :class="`badge-${result?.affordability_status}`"
+                   x-text="resultStatus.label"></div>
+              <p class="text-2xl lg:text-3xl font-black text-slate-900 leading-tight" x-text="resultStatus.headline"></p>
+              <p class="text-slate-600 text-sm mt-2 leading-relaxed max-w-xl" x-text="result?.request_text || selectedSample?.request_text"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Two-column grid ─────────────────────────────────── -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+          <!-- LEFT: 2/3 -->
+          <div class="lg:col-span-2 space-y-6">
+
+            <!-- Safe amount card -->
+            <div class="bg-white rounded-3xl p-7 lg:p-8 shadow-sm border border-slate-100">
+              <div class="flex items-start justify-between flex-wrap gap-4 mb-5">
+                <div>
+                  <p class="text-sm text-slate-500 mb-1.5">Safe to spend today</p>
+                  <p class="text-5xl lg:text-6xl font-black text-slate-900 amt tracking-tight leading-none"
+                     x-text="fmtAmt(result?.amount_safe_to_pay, result?.financial_context?.home_currency)"></p>
+                  <p class="text-sm text-slate-400 mt-3">Based on your current balance and upcoming commitments</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-xs text-slate-400 mb-1">Amount requested</p>
+                  <p class="text-xl font-bold text-slate-500 amt"
+                     x-text="fmtAmt(result?.requested_amount, result?.financial_context?.home_currency)"></p>
+                </div>
+              </div>
+
+              <!-- Min reserve note -->
+              <div x-show="result?.financial_context?.minimum_balance_to_keep"
+                   class="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3">
+                <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                <p class="text-sm text-indigo-700">
+                  Minimum reserve of
+                  <strong class="amt" x-text="fmtAmt(result?.financial_context?.minimum_balance_to_keep, result?.financial_context?.home_currency)"></strong>
+                  is always protected
+                </p>
+              </div>
+            </div>
+
+            <!-- Recommendation + payment plan -->
+            <div class="bg-white rounded-3xl p-7 lg:p-8 shadow-sm border border-slate-100">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Recommended for you</p>
+
+              <div class="flex items-start gap-4 mb-7">
+                <div class="w-11 h-11 bg-indigo-100 text-indigo-700 rounded-2xl flex items-center justify-center font-bold text-lg flex-shrink-0">→</div>
+                <div>
+                  <p class="font-black text-slate-900 text-xl" x-text="resultMethod.label"></p>
+                  <p class="text-slate-500 text-sm mt-1" x-text="resultMethod.desc"></p>
+                </div>
+              </div>
+
+              <!-- Payment timeline -->
+              <div x-show="resultPlan.length > 0">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Payment schedule</p>
+                <div>
+                  <template x-for="(payment, idx) in resultPlan" :key="idx">
+                    <div class="flex gap-5">
+                      <!-- Timeline dot + line -->
+                      <div class="flex flex-col items-center w-5 flex-shrink-0">
+                        <div class="w-4 h-4 rounded-full border-2 mt-0.5 flex-shrink-0 transition-all"
+                             :class="idx === 0
+                               ? 'bg-indigo-600 border-indigo-600 shadow-sm shadow-indigo-600/40'
+                               : 'bg-white border-slate-300'"></div>
+                        <div x-show="idx < resultPlan.length - 1"
+                             class="w-0.5 flex-1 tl-connector my-1.5 rounded-full"
+                             style="min-height:36px;"></div>
+                      </div>
+                      <!-- Content -->
+                      <div class="flex-1 pb-7">
+                        <div class="flex items-start justify-between gap-4">
+                          <div>
+                            <p class="font-semibold text-slate-900" x-text="fmtDate(payment.date)"></p>
+                            <p class="text-xs text-slate-400 mt-0.5"
+                               x-text="idx === 0 ? 'First payment' : (idx === resultPlan.length - 1 ? 'Final payment' : `Payment ${idx + 1}`)"></p>
+                          </div>
+                          <p class="font-black text-slate-900 amt text-xl" x-text="fmtAmt(payment.amount, result?.financial_context?.home_currency)"></p>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- WAIT: show earliest date -->
+              <div x-show="result?.affordability_status === 'affordable_later' && !resultPlan.length">
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+                  <p class="text-sm font-semibold text-amber-800 mb-2">Best to wait until</p>
+                  <p class="text-4xl font-black text-amber-700 amt" x-text="fmtDate(result?.earliest_date_for_full_payment)"></p>
+                  <p class="text-sm text-amber-600 mt-3 leading-relaxed">
+                    That's the earliest date your 90-day forecast shows you can safely make the full payment.
+                  </p>
+                </div>
+              </div>
+
+              <!-- NOT AFFORDABLE: explain -->
+              <div x-show="result?.affordability_status === 'not_affordable'">
+                <div class="bg-red-50 border border-red-100 rounded-2xl p-6">
+                  <p class="font-semibold text-red-900 mb-2">Not affordable right now</p>
+                  <p class="text-sm text-red-700 leading-relaxed">
+                    Paying
+                    <span class="font-bold amt" x-text="fmtAmt(result?.requested_amount, result?.financial_context?.home_currency)"></span>
+                    today would reduce your balance below the amount you've chosen to keep available for upcoming commitments.
+                  </p>
+                  <div x-show="result?.earliest_date_for_full_payment" class="mt-4 pt-4 border-t border-red-200">
+                    <p class="text-xs text-red-600">Earliest possible date: <span class="font-semibold" x-text="fmtDate(result?.earliest_date_for_full_payment)"></span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Spending changes -->
+            <div x-show="resultChanges.length > 0"
+                 class="bg-white rounded-3xl p-7 lg:p-8 shadow-sm border border-slate-100">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">What could help</p>
+              <p class="text-slate-700 text-sm mb-6"
+                 x-text="`We found ${resultChanges.length} spending change${resultChanges.length > 1 ? 's' : ''} that could improve your affordability.`"></p>
+              <div class="space-y-3">
+                <template x-for="(c, i) in resultChanges" :key="i">
+                  <div class="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+                         :class="c.action === 'stop' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                         x-text="c.action === 'stop' ? 'Stop' : 'Reduce'"></div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-semibold text-slate-800 truncate" x-text="c.eventId.replace(/_/g,' ')"></p>
+                      <p class="text-xs text-slate-500 mt-0.5"
+                         x-text="c.action === 'reduce'
+                           ? `Reduce to ${fmtAmt(c.newAmount, result?.financial_context?.home_currency)} per period`
+                           : 'Pause this recurring expense'"></p>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <p class="text-xs text-slate-400 mt-4">These are recommendations only. No changes have been made to your accounts.</p>
+            </div>
+
+          </div>
+
+          <!-- RIGHT: 1/3 -->
+          <div class="space-y-6">
+
+            <!-- Financial safety buffer -->
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">Financial safety</p>
+
+              <div class="space-y-4">
+                <div>
+                  <div class="flex justify-between text-sm mb-1.5">
+                    <span class="text-slate-500">Current balance</span>
+                    <span class="font-bold text-slate-900 amt"
+                          x-text="fmtAmt(result?.financial_context?.current_available_balance, result?.financial_context?.home_currency)"></span>
+                  </div>
+                </div>
+                <div x-show="result?.financial_context?.minimum_balance_to_keep">
+                  <div class="flex justify-between text-sm mb-1.5">
+                    <span class="text-slate-500">Minimum reserve</span>
+                    <span class="font-semibold text-slate-600 amt"
+                          x-text="fmtAmt(result?.financial_context?.minimum_balance_to_keep, result?.financial_context?.home_currency)"></span>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-sm mb-1.5">
+                    <span class="text-slate-500">Safe to spend</span>
+                    <span class="font-bold text-emerald-700 amt"
+                          x-text="fmtAmt(result?.amount_safe_to_pay, result?.financial_context?.home_currency)"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Visual bar -->
+              <div x-show="result?.financial_context?.current_available_balance > 0" class="mt-5">
+                <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                       :style="`width:${Math.min(100, Math.round((+result?.amount_safe_to_pay / +result?.financial_context?.current_available_balance) * 100))}%`"></div>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 text-center">Safe amount as share of balance</p>
+              </div>
+
+              <div class="mt-5 pt-4 border-t border-slate-100">
+                <p class="text-xs text-slate-400 leading-relaxed">Based on your current financial information and upcoming commitments.</p>
+              </div>
+            </div>
+
+            <!-- Request details -->
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Request details</p>
+              <div class="space-y-3">
+                <div class="flex gap-3">
+                  <span class="text-xs text-slate-400 w-20 flex-shrink-0 pt-0.5">Category</span>
+                  <span class="text-sm text-slate-800 capitalize"
+                        x-text="(result?.request_type || '').replace(/_/g,' ')"></span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-xs text-slate-400 w-20 flex-shrink-0 pt-0.5">Date</span>
+                  <span class="text-sm text-slate-800" x-text="fmtDate(result?.request_date)"></span>
+                </div>
+                <div class="flex gap-3" x-show="result?.desired_completion_date">
+                  <span class="text-xs text-slate-400 w-20 flex-shrink-0 pt-0.5">Deadline</span>
+                  <span class="text-sm text-slate-800" x-text="fmtDate(result?.desired_completion_date)"></span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-xs text-slate-400 w-20 flex-shrink-0 pt-0.5">ID</span>
+                  <span class="text-xs text-slate-400 font-mono break-all" x-text="result?.request_id"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Try another -->
+            <button @click="view='check'; error=null"
+                    class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-2xl text-sm transition-colors">
+              ← Try a different scenario
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Why this decision (collapsible) ────────────────── -->
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-100 mb-4 overflow-hidden">
+          <button @click="expandWhy = !expandWhy"
+                  class="w-full flex items-center justify-between px-7 py-6 text-left hover:bg-slate-50 transition-colors">
+            <div>
+              <p class="font-bold text-slate-900">Why this recommendation?</p>
+              <p class="text-sm text-slate-500 mt-0.5">Understand the data behind your result</p>
+            </div>
+            <svg class="w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+                 :class="expandWhy && 'rotate-180'"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div x-show="expandWhy"
+               x-transition:enter="transition ease-out duration-200"
+               x-transition:enter-start="opacity-0"
+               x-transition:enter-end="opacity-100">
+            <div class="px-7 pb-7 border-t border-slate-100 pt-5">
+              <p class="text-slate-600 leading-relaxed text-sm" x-text="result?.decision_explanation"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Explore alternatives ────────────────────────────── -->
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+          <button @click="expandWhatif = !expandWhatif"
+                  class="w-full flex items-center justify-between px-7 py-6 text-left hover:bg-slate-50 transition-colors">
+            <div>
+              <p class="font-bold text-slate-900">Explore alternatives</p>
+              <p class="text-sm text-slate-500 mt-0.5">What if you chose a different approach?</p>
+            </div>
+            <svg class="w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0"
+                 :class="expandWhatif && 'rotate-180'"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div x-show="expandWhatif"
+               x-transition:enter="transition ease-out duration-200"
+               x-transition:enter-start="opacity-0"
+               x-transition:enter-end="opacity-100">
+            <div class="border-t border-slate-100 px-7 py-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+              <!-- Wait -->
+              <div class="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                <p class="text-sm font-semibold text-slate-700 mb-2.5">◷ What if I wait?</p>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                  <template x-if="result?.earliest_date_for_full_payment">
+                    <span>The earliest safe date for full payment is
+                      <span class="font-semibold text-slate-800" x-text="fmtDate(result?.earliest_date_for_full_payment)"></span>.
+                    </span>
+                  </template>
+                  <template x-if="!result?.earliest_date_for_full_payment">
+                    <span>No safe date for full payment was found within the 90-day forecast period.</span>
+                  </template>
+                </p>
+              </div>
+
+              <!-- Installments -->
+              <div class="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                <p class="text-sm font-semibold text-slate-700 mb-2.5">◎ What if I use installments?</p>
+                <p class="text-xs text-slate-500 leading-relaxed"
+                   x-text="result?.recommended_payment_method === 'installments'
+                     ? 'Installments are already the recommended option for this purchase.'
+                     : 'Installments are not available or do not align with your payment preferences for this request.'">
+                </p>
+              </div>
+
+              <!-- Partial payment -->
+              <div class="rounded-2xl border border-slate-200 p-5 bg-slate-50">
+                <p class="text-sm font-semibold text-slate-700 mb-2.5">◑ What if I split the payment?</p>
+                <p class="text-xs text-slate-500 leading-relaxed"
+                   x-text="result?.allows_partial_payment
+                     ? 'Partial payment is allowed for this request. You can pay safely now and cover the remainder when funds permit.'
+                     : 'Partial payment is not enabled for this request.'">
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================================================================
+         VIEW: DASHBOARD  (all 250 decisions)
+    ================================================================ -->
+    <div x-show="view==='dashboard'" x-cloak class="view-in">
+      <div class="max-w-6xl mx-auto px-4 py-8 lg:py-12">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-end gap-4 mb-8">
+          <div>
+            <h2 class="text-3xl font-black text-slate-900">All decisions</h2>
+            <p class="text-slate-500 mt-1 text-sm" x-text="`${stats.total || 0} affordability checks analyzed`"></p>
+          </div>
+          <div class="sm:ml-auto">
+            <button @click="view='check'; error=null"
+                    class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-colors">
+              + Check affordability
+            </button>
+          </div>
+        </div>
+
+        <!-- Stat cards (clickable filter) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <button @click="filterStatus = filterStatus === 'affordable_now' ? 'all' : 'affordable_now'; currentPage=1"
+                  class="bg-white rounded-2xl p-5 border-2 text-left transition-all c-hover"
+                  :class="filterStatus === 'affordable_now' ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-slate-100'">
+            <p class="text-3xl font-black text-emerald-600 amt" x-text="statCount('affordable_now')"></p>
+            <p class="text-sm text-slate-700 font-medium mt-1">Affordable now</p>
+            <p class="text-xs text-slate-400 mt-0.5" x-text="`${statPct('affordable_now')}% of total`"></p>
+          </button>
+          <button @click="filterStatus = filterStatus === 'affordable_with_plan' ? 'all' : 'affordable_with_plan'; currentPage=1"
+                  class="bg-white rounded-2xl p-5 border-2 text-left transition-all c-hover"
+                  :class="filterStatus === 'affordable_with_plan' ? 'border-indigo-400 ring-1 ring-indigo-200' : 'border-slate-100'">
+            <p class="text-3xl font-black text-indigo-600 amt" x-text="statCount('affordable_with_plan')"></p>
+            <p class="text-sm text-slate-700 font-medium mt-1">With a plan</p>
+            <p class="text-xs text-slate-400 mt-0.5" x-text="`${statPct('affordable_with_plan')}% of total`"></p>
+          </button>
+          <button @click="filterStatus = filterStatus === 'affordable_later' ? 'all' : 'affordable_later'; currentPage=1"
+                  class="bg-white rounded-2xl p-5 border-2 text-left transition-all c-hover"
+                  :class="filterStatus === 'affordable_later' ? 'border-amber-400 ring-1 ring-amber-200' : 'border-slate-100'">
+            <p class="text-3xl font-black text-amber-500 amt" x-text="statCount('affordable_later')"></p>
+            <p class="text-sm text-slate-700 font-medium mt-1">Affordable later</p>
+            <p class="text-xs text-slate-400 mt-0.5" x-text="`${statPct('affordable_later')}% of total`"></p>
+          </button>
+          <button @click="filterStatus = filterStatus === 'not_affordable' ? 'all' : 'not_affordable'; currentPage=1"
+                  class="bg-white rounded-2xl p-5 border-2 text-left transition-all c-hover"
+                  :class="filterStatus === 'not_affordable' ? 'border-red-400 ring-1 ring-red-200' : 'border-slate-100'">
+            <p class="text-3xl font-black text-red-600 amt" x-text="statCount('not_affordable')"></p>
+            <p class="text-sm text-slate-700 font-medium mt-1">Not affordable</p>
+            <p class="text-xs text-slate-400 mt-0.5" x-text="`${statPct('not_affordable')}% of total`"></p>
+          </button>
+        </div>
+
+        <!-- Search + filter controls -->
+        <div class="flex flex-col sm:flex-row gap-3 mb-5">
+          <div class="flex-1 relative">
+            <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" x-model="searchQuery" @input="currentPage = 1"
+                   placeholder="Search by ID, user, category, or request text…"
+                   class="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-shadow" />
+          </div>
+          <button x-show="filterStatus !== 'all'"
+                  @click="filterStatus = 'all'; currentPage=1"
+                  class="px-4 py-3 text-sm text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl transition-colors font-medium">
+            Clear filter ×
+          </button>
+        </div>
+
+        <!-- Results list -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+
+          <!-- Empty state -->
+          <div x-show="filteredResults.length === 0" class="py-20 text-center">
+            <p class="text-2xl text-slate-200 mb-3">○</p>
+            <p class="text-slate-500 font-medium">No decisions found</p>
+            <p class="text-slate-400 text-sm mt-1">Try a different search or clear the filter</p>
+          </div>
+
+          <div class="divide-y divide-slate-50">
+            <template x-for="item in paginatedResults" :key="item.request_id">
+              <button @click="openDetail(item)"
+                      class="w-full flex items-center gap-4 px-5 py-4 hover:bg-slate-50 cursor-pointer transition-colors text-left">
+
+                <!-- Status dot -->
+                <div class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                     :class="{
+                       'bg-emerald-500': item.affordability_status === 'affordable_now',
+                       'bg-indigo-500': item.affordability_status === 'affordable_with_plan',
+                       'bg-amber-400': item.affordability_status === 'affordable_later',
+                       'bg-red-500': item.affordability_status === 'not_affordable',
+                     }"></div>
+
+                <!-- Main -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-slate-900 truncate"
+                         x-text="item.request_text || item.request_id"></p>
+                      <p class="text-xs text-slate-400 mt-0.5">
+                        <span x-text="item.request_id"></span>
+                        <span class="mx-1">·</span>
+                        <span class="capitalize" x-text="(item.request_type || '').replace(/_/g,' ')"></span>
+                        <span class="mx-1">·</span>
+                        <span x-text="fmtDate(item.request_date)"></span>
+                      </p>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                      <p class="text-sm font-bold text-slate-900 amt" x-text="fmtAmt(item.amount_safe_to_pay)"></p>
+                      <div class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium mt-1"
+                           :class="`badge-${item.affordability_status}`"
+                           x-text="statusInfo(item.affordability_status).label"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Chevron -->
+                <svg class="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </template>
+          </div>
+
+          <!-- Pagination -->
+          <div x-show="totalPages > 1"
+               class="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50">
+            <p class="text-xs text-slate-500"
+               x-text="`${(currentPage-1)*pageSize+1}–${Math.min(currentPage*pageSize, filteredResults.length)} of ${filteredResults.length}`"></p>
+            <div class="flex gap-2">
+              <button @click="currentPage > 1 && currentPage--" :disabled="currentPage === 1"
+                      class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-white transition-colors">
+                ← Prev
+              </button>
+              <span class="px-3 py-1.5 text-xs text-slate-500" x-text="`${currentPage} / ${totalPages}`"></span>
+              <button @click="currentPage < totalPages && currentPage++" :disabled="currentPage === totalPages"
+                      class="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-white transition-colors">
+                Next →
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===================================================================
+     MOBILE BOTTOM NAV
+=================================================================== -->
+<nav class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-100 flex z-30 safe-bottom">
+  <button @click="view='home'"
+          class="flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors"
+          :class="view==='home' ? 'mnav-on' : 'mnav-off'">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+    </svg>
+    <span class="text-[10px] font-medium">Home</span>
+  </button>
+  <button @click="view='check'; error=null"
+          class="flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors"
+          :class="view==='check' ? 'mnav-on' : 'mnav-off'">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <span class="text-[10px] font-medium">Check</span>
+  </button>
+  <button @click="view='dashboard'; currentPage=1"
+          class="flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors"
+          :class="view==='dashboard' ? 'mnav-on' : 'mnav-off'">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+    </svg>
+    <span class="text-[10px] font-medium">Decisions</span>
+  </button>
+  <button x-show="view==='result'" @click="view='result'"
+          class="flex-1 flex flex-col items-center gap-1 py-2.5 mnav-on">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+    </svg>
+    <span class="text-[10px] font-medium">Result</span>
+  </button>
+</nav>
+
+<!-- ===================================================================
+     DETAIL MODAL  (from dashboard row click)
+=================================================================== -->
+<div x-show="detailResult" x-cloak
+     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 modal-ov"
+     @click.self="detailResult = null">
+  <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden">
+
+    <!-- Modal header -->
+    <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+      <div class="flex-1 min-w-0">
+        <div class="inline-flex px-3 py-1 rounded-full text-xs font-semibold mb-2"
+             :class="`badge-${detailResult?.affordability_status}`"
+             x-text="statusInfo(detailResult?.affordability_status).label"></div>
+        <p class="text-sm font-medium text-slate-800 leading-relaxed" x-text="detailResult?.request_text || detailResult?.request_id"></p>
+      </div>
+      <button @click="detailResult = null" class="text-slate-400 hover:text-slate-700 p-1 flex-shrink-0 transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal body -->
+    <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+      <!-- Key numbers -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-50 rounded-2xl p-4">
+          <p class="text-xs text-slate-400 mb-1">Safe to spend</p>
+          <p class="font-black text-slate-900 amt" x-text="fmtAmt(detailResult?.amount_safe_to_pay)"></p>
+        </div>
+        <div class="bg-slate-50 rounded-2xl p-4">
+          <p class="text-xs text-slate-400 mb-1">Requested</p>
+          <p class="font-bold text-slate-700 amt" x-text="fmtAmt(detailResult?.requested_amount)"></p>
+        </div>
+      </div>
+
+      <!-- Method + date -->
+      <div class="space-y-3">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Recommended</span>
+          <span class="font-semibold text-slate-800" x-text="methodInfo(detailResult?.recommended_payment_method).label"></span>
+        </div>
+        <div class="flex justify-between text-sm" x-show="detailResult?.earliest_date_for_full_payment">
+          <span class="text-slate-500">Earliest full payment</span>
+          <span class="font-semibold text-slate-800" x-text="fmtDate(detailResult?.earliest_date_for_full_payment)"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Category</span>
+          <span class="text-slate-800 capitalize" x-text="(detailResult?.request_type || '').replace(/_/g,' ')"></span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">Request date</span>
+          <span class="text-slate-800" x-text="fmtDate(detailResult?.request_date)"></span>
+        </div>
+      </div>
+
+      <!-- Payment plan -->
+      <div x-show="parsePlan(detailResult?.payment_plan).length > 0">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Payment plan</p>
+        <div class="space-y-2">
+          <template x-for="(p, i) in parsePlan(detailResult?.payment_plan)" :key="i">
+            <div class="flex justify-between items-center bg-slate-50 rounded-xl px-4 py-3">
+              <span class="text-sm text-slate-600" x-text="fmtDate(p.date)"></span>
+              <span class="font-bold text-slate-900 amt text-sm" x-text="fmtAmt(p.amount)"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Explanation -->
+      <div>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Why</p>
+        <p class="text-sm text-slate-600 leading-relaxed" x-text="detailResult?.decision_explanation"></p>
+      </div>
+    </div>
+
+    <!-- Modal footer -->
+    <div class="px-6 py-4 border-t border-slate-100 flex gap-3">
+      <button @click="selectAndRun(detailResult)"
+              class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-colors">
+        ⚡ Re-run live analysis
+      </button>
+      <button @click="detailResult = null"
+              class="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     ALPINE.JS APPLICATION LOGIC
+=================================================================== -->
+<script>
+function app() {
+  return {
+    // ── Navigation ───────────────────────────────────────────
+    view: 'home',
+
+    // ── Global data ──────────────────────────────────────────
+    stats: { total: 0, affordability: {}, methods: {} },
+    allResults: [],
+    samples: [],
+
+    // ── Check form ───────────────────────────────────────────
+    selectedSample: null,
+    error: null,
+
+    // ── Loading animation ────────────────────────────────────
+    loadingSteps: [
+      'Reviewing your available balance',
+      'Checking upcoming commitments',
+      'Forecasting the next 90 days',
+      'Comparing payment options',
+      'Finding the safest option for you',
+    ],
+    loadingIdx: 0,
+
+    // ── Result ───────────────────────────────────────────────
+    result: null,
+    expandWhy: false,
+    expandWhatif: false,
+
+    // ── Dashboard ────────────────────────────────────────────
+    searchQuery: '',
+    filterStatus: 'all',
+    currentPage: 1,
+    pageSize: 12,
+    detailResult: null,
+
+    // ── Computed ─────────────────────────────────────────────
+    get filteredResults() {
+      let r = this.allResults;
+      if (this.filterStatus !== 'all') {
+        r = r.filter(x => x.affordability_status === this.filterStatus);
+      }
+      if (this.searchQuery.trim()) {
+        const q = this.searchQuery.toLowerCase();
+        r = r.filter(x =>
+          (x.request_id || '').toLowerCase().includes(q) ||
+          (x.request_text || '').toLowerCase().includes(q) ||
+          (x.request_type || '').toLowerCase().includes(q) ||
+          (x.user_id || '').toLowerCase().includes(q)
+        );
+      }
+      return r;
+    },
+
+    get paginatedResults() {
+      const start = (this.currentPage - 1) * this.pageSize;
+      return this.filteredResults.slice(start, start + this.pageSize);
+    },
+
+    get totalPages() {
+      return Math.max(1, Math.ceil(this.filteredResults.length / this.pageSize));
+    },
+
+    get resultStatus() { return this.statusInfo(this.result?.affordability_status); },
+    get resultMethod()  { return this.methodInfo(this.result?.recommended_payment_method); },
+    get resultPlan()    { return this.parsePlan(this.result?.payment_plan); },
+    get resultChanges() { return this.parseSpendingChanges(this.result?.spending_changes_needed); },
+
+    // ── Lifecycle ────────────────────────────────────────────
+    async init() {
+      await Promise.all([this.loadStats(), this.loadResults()]);
+    },
+
+    async loadStats() {
+      try {
+        const r = await fetch('/api/stats');
+        if (r.ok) this.stats = await r.json();
+      } catch {}
+    },
+
+    async loadResults() {
+      try {
+        const r = await fetch('/api/results');
+        if (r.ok) {
+          this.allResults = await r.json();
+          this.prepareSamples();
+        }
+      } catch {}
+    },
+
+    prepareSamples() {
+      const statuses = ['affordable_now', 'affordable_with_plan', 'affordable_later', 'not_affordable'];
+      const meta = {
+        affordable_now:       { icon: '✓', label: 'Affordable now', desc: 'Full payment is safe today' },
+        affordable_with_plan: { icon: '◎', label: 'Affordable with a plan', desc: 'Payment plan makes it feasible' },
+        affordable_later:     { icon: '◷', label: 'Affordable later', desc: 'Waiting is the safer option' },
+        not_affordable:       { icon: '!', label: 'Not affordable', desc: 'Outside safe financial limits' },
+      };
+      this.samples = statuses.map(s => {
+        const found = this.allResults.find(x => x.affordability_status === s);
+        if (!found) return null;
+        return { ...found, ...meta[s] };
+      }).filter(Boolean);
+    },
+
+    selectSample(s) {
+      this.selectedSample = s;
+    },
+
+    // ── Main affordability check ─────────────────────────────
+    async runCheck() {
+      if (!this.selectedSample) {
+        this.error = 'Please select a scenario to analyze.';
+        return;
+      }
+      this.error = null;
+      const requestId = this.selectedSample.request_id;
+      this.view = 'loading';
+      this.loadingIdx = 0;
+
+      const stepInterval = setInterval(() => {
+        if (this.loadingIdx < this.loadingSteps.length - 1) {
+          this.loadingIdx++;
+        } else {
+          clearInterval(stepInterval);
+        }
+      }, 550);
+
+      try {
+        const [decideResp, _, fullResp] = await Promise.all([
+          fetch(`/api/decide/${requestId}`, { method: 'POST' }),
+          new Promise(r => setTimeout(r, 3000)),
+          fetch(`/api/results/${requestId}`),
+        ]);
+
+        clearInterval(stepInterval);
+        this.loadingIdx = this.loadingSteps.length - 1;
+
+        if (!decideResp.ok) {
+          const txt = await decideResp.text();
+          throw new Error(txt || `HTTP ${decideResp.status}`);
+        }
+
+        const [decideData, fullData] = await Promise.all([
+          decideResp.json(),
+          fullResp.ok ? fullResp.json() : {},
+        ]);
+
+        await new Promise(r => setTimeout(r, 400));
+        this.result = { ...fullData, ...decideData };
+        this.expandWhy = false;
+        this.expandWhatif = false;
+        this.view = 'result';
+
+      } catch (e) {
+        clearInterval(stepInterval);
+        this.error = 'Analysis could not be completed. ' + (e.message || 'Please try again.');
+        this.view = 'check';
+      }
+    },
+
+    selectAndRun(item) {
+      this.selectSample(item);
+      this.detailResult = null;
+      this.runCheck();
+    },
+
+    openDetail(item) {
+      this.detailResult = item;
+    },
+
+    // ── Formatting helpers ───────────────────────────────────
+    fmtAmt(amount, currency) {
+      if (amount === null || amount === undefined) return '—';
+      const n = +amount;
+      if (isNaN(n)) return '—';
+      const c = currency || 'INR';
+      try {
+        return new Intl.NumberFormat('en-IN', {
+          style: 'currency',
+          currency: c,
+          maximumFractionDigits: 2,
+          minimumFractionDigits: 0,
+        }).format(n);
+      } catch {
+        return `${c} ${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+      }
+    },
+
+    fmtDate(d) {
+      if (!d) return '—';
+      try {
+        const dt = new Date(d + 'T00:00:00');
+        if (isNaN(dt)) return d;
+        return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch { return d; }
+    },
+
+    statusInfo(s) {
+      return ({
+        affordable_now:       { label: 'Affordable now',         icon: '✓', headline: 'You can safely afford this today.' },
+        affordable_with_plan: { label: 'Affordable with a plan', icon: '◎', headline: 'The full purchase is possible through a structured payment plan.' },
+        affordable_later:     { label: 'Affordable later',       icon: '◷', headline: 'Waiting a little longer gives you the room to pay this safely.' },
+        not_affordable:       { label: 'Not affordable right now', icon: '!', headline: 'This purchase would put your financial buffer at risk.' },
+      })[s] || { label: s || 'Unknown', icon: '?', headline: '' };
+    },
+
+    methodInfo(m) {
+      return ({
+        full_payment:     { label: 'Pay in full today',           desc: 'Make the complete payment now.' },
+        partial_payment:  { label: 'Split into two payments',     desc: 'Make a partial payment now and cover the rest on a later date.' },
+        installments:     { label: 'Use an installment plan',     desc: 'Spread the cost over multiple payments as offered by the seller.' },
+        wait:             { label: 'Wait until you can pay fully',desc: 'Build up your balance first, then make the full payment safely.' },
+        not_recommended:  { label: 'Not recommended',             desc: 'This purchase is outside your safe financial range at any point in the forecast.' },
+      })[m] || { label: m || '—', desc: '' };
+    },
+
+    parsePlan(planStr) {
+      if (!planStr || planStr === 'none') return [];
+      return planStr.split('|').map(entry => {
+        const idx = entry.indexOf(':');
+        if (idx === -1) return null;
+        const amount = parseFloat(entry.slice(idx + 1));
+        if (isNaN(amount)) return null;
+        return { date: entry.slice(0, idx), amount };
+      }).filter(Boolean);
+    },
+
+    parseSpendingChanges(str) {
+      if (!str || str === 'none') return [];
+      return str.split('|').map(c => {
+        const parts = c.split(':');
+        if (parts[0] === 'stop' && parts[1]) return { action: 'stop', eventId: parts[1] };
+        if (parts[0] === 'reduce_to' && parts[1]) return { action: 'reduce', eventId: parts[1], newAmount: parseFloat(parts[2]) };
+        return null;
+      }).filter(Boolean);
+    },
+
+    statCount(key) { return this.stats?.affordability?.[key] || 0; },
+    statPct(key) {
+      const t = this.stats?.total || 0;
+      if (!t) return 0;
+      return Math.round((this.statCount(key) / t) * 100);
+    },
+  };
+}
+</script>
+
+</body>
+</html>
